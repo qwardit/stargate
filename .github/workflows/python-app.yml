@@ -1,0 +1,82 @@
+import os
+import time
+import random
+import schedule
+from web3 import Web3
+from dotenv import load_dotenv
+from eth_account import Account
+
+# Завантаження змінних середовища
+load_dotenv()
+fantom_private_key = os.getenv('FANTOM_PRIVATE_KEY')
+polygon_private_key = os.getenv('POLYGON_PRIVATE_KEY')
+fantom_rpc = os.getenv('FANTOM_RPC')
+polygon_rpc = os.getenv('POLYGON_RPC')
+fantom_usdt_contract_address = os.getenv('FANTOM_USDT_CONTRACT_ADDRESS')
+polygon_usdt_contract_address = os.getenv('POLYGON_USDT_CONTRACT_ADDRESS')
+
+# Підключення до мережі Fantom
+w3_fantom = Web3(Web3.HTTPProvider(fantom_rpc))
+
+# Підключення до мережі Polygon
+w3_polygon = Web3(Web3.HTTPProvider(polygon_rpc))
+
+# Створення об'єкту аккаунта для мережі Fantom
+fantom_account = Account.from_key(fantom_private_key)
+
+# Створення об'єкту аккаунта для мережі Polygon
+polygon_account = Account.from_key(polygon_private_key)
+
+# Отримання газової ціни та газового ліміту з мережі Fantom
+def get_gas_data():
+    last_block = w3_fantom.eth.getBlock('latest')
+    gas_price = last_block['baseFeePerGas']
+    gas_limit = 200000
+    return (gas_price, gas_limit)
+
+# Відправка транзакції на переказ USDT з мережі Fantom на мережу Polygon
+def send_transaction():
+    # Отримання газової ціни та газового ліміту з мережі Fantom
+    gas_price, gas_limit = get_gas_data()
+
+    # Вибір рандомної суми для переказу
+    amount_usdt = round(random.uniform(20, 100), 2)
+    amount_usdt_wei = Web3.toWei(amount_usdt, 'ether')
+
+    # Побудова транзакції для переказу USDT з мережі Fantom на мережу Polygon
+def send_transaction():
+    # Отримання газової ціни та газового ліміту з мережі Fantom
+    gas_price, gas_limit = get_gas_data()
+
+    # Вибір рандомної суми для переказу
+    amount_usdt = round(random.uniform(20, 100), 2)
+    amount_usdt_wei = Web3.toWei(amount_usdt, 'ether')
+
+    # Перевірка балансу на адресі з мережі Fantom
+    if w3_fantom.eth.getBalance(fantom_account.address) < (gas_price * gas_limit + amount_usdt_wei):
+        print('Недостатньо коштів для відправки транзакції')
+        return
+
+    # Побудова транзакції для переказу USDT з мережі Fantom на мережу Polygon
+    txn = {
+        'to': fantom_usdt_contract_address,
+        'value': 0,
+        'gasPrice': gas_price,
+        'gas': gas_limit,
+        'nonce': w3_fantom.eth.getTransactionCount(fantom_account.address),
+        'chainId': 250,
+        'data': w3_fantom.toHex(text=f'0xa9059cbb{polygon_account.address[2:].lower():0>64}{amount_usdt_wei.hex()[2:].lower():0>64}'),
+    }
+
+    # Підписання транзакції з мережі Fantom
+    signed_txn = w3_fantom.eth.account.sign_transaction(txn, fantom_private_key)
+
+    # Відправка підписаної транзакції на мережу Fantom
+    txn_hash = w3_fantom.eth.send_raw_transaction(signed_txn.rawTransaction)
+
+    # Очікування підтвердження транзакції
+    receipt = w3_fantom.eth.waitForTransactionReceipt(txn_hash)
+    while receipt is None:
+        time.sleep(5)
+        receipt = w3_fantom.eth.waitForTransactionReceipt(txn_hash)
+    print("Транзакція успішно виконана!")
